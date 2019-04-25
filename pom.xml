@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>es.gob.afirma.jmulticard</groupId>
 	<artifactId>jmulticard-base</artifactId>
-	<version>1.5-SNAPSHOT</version>
+	<version>1.5</version>
 	<packaging>pom</packaging>
 	
 	<name>jmulticard-base</name>
@@ -62,15 +62,49 @@
 		</dependency>
 	</dependencies>
 
-	<modules>
-		<module>jmulticard</module>
-		<!-- <module>jmulticard-android</module> Solo funciona con Maven3 -->
-		<module>jmulticard-jsr268</module>
-		<module>jmulticard-ui</module>
-		<module>jmulticard-jse</module>
-	</modules>
-	
 	<profiles>
+
+		<!-- Construccion por defecto -->
+		<profile>
+			<id>basic</id>
+			<activation>
+				<property>
+					<name>basicModules</name>
+					<value>!false</value>
+				</property>
+      		</activation>
+
+			<modules>
+				<module>jmulticard</module>
+				<module>jmulticard-jsr268</module>
+				<module>jmulticard-ui</module>
+				<module>jmulticard-jse</module>
+			</modules>
+
+	    </profile>
+
+		<!-- Construccion que incluye el modulo Android -->
+		<profile>
+			<id>android</id>
+			<activation>
+				<property>
+					<name>android</name>
+					<value>true</value>
+				</property>
+      		</activation>
+
+			<modules>
+				<module>jmulticard</module>
+				<module>jmulticard-android</module>
+				<module>jmulticard-jsr268</module>
+				<module>jmulticard-ui</module>
+				<module>jmulticard-jse</module>
+			</modules>
+
+	    </profile>
+
+	
+	
 	
 		<!-- Construccion por defecto -->
 		<profile>

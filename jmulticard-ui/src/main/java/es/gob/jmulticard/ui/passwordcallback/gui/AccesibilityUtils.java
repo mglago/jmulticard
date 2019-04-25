@@ -58,6 +58,7 @@ import java.awt.event.FocusListener;
 import java.util.Locale;
 import java.util.logging.Logger;
 
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -71,8 +72,8 @@ import javax.swing.JWindow;
 import javax.swing.UIManager;
 import javax.swing.border.TitledBorder;
 
-/** Clase con utilidades varias */
-final class Utils {
+/** Clase con utilidades varias. */
+final class AccesibilityUtils {
 
     /** Indica si el sistema operativo tiene activada una combinaci&oacute;n de colores de alto contraste. */
     private static final boolean HIGH_CONTRAST;
@@ -96,7 +97,7 @@ final class Utils {
         }
     }
 
-    private Utils() {
+    private AccesibilityUtils() {
         // No permitimos la instanciacion
     }
 
@@ -237,8 +238,8 @@ final class Utils {
         }
     }
 
-    /** Aplica el estilo de fuente negrita
-     * @param component Componente al que aplicar el estilo de fuente negrita. */
+    /** Aplica el estilo de tipo de letra en negrita.
+     * @param component Componente al que aplicar el estilo de tipo de letra en negrita. */
     static void setFontBold(final JComponent component) {
         // Se comprueba si el componente es de tipo panel con borde
         if (component instanceof JPanel) {
@@ -271,7 +272,7 @@ final class Utils {
         }
     }
 
-    /** Metodo que sumbraya el mnemonico correspondiente para texto HTML.
+    /** Subraya el mnem&oacute;nico correspondiente para texto HTML.
      * @param text Texto en el que hay que subrayar el caracter.
      * @param key Caracter a subrayar.
      * @return Cadena con el texto subrayado. */
@@ -289,11 +290,24 @@ final class Utils {
         return newText;
     }
 
-    /** Muestra u oculta un tooltip relacionado con un bot&oacute;n.
-     * @param show Boolean que indica si se muestra el tooltip
-     * @param tip JWindow que muestra el contenido del tooltip
-     * @param boton JButton al que se relaciona el tooltip
-     * @param tipText JLabel que muestra el contenido del tooltip */
+    /** Subraya el mnem&oacute;nico correspondiente en un bot&oacute;n. El car&aacute;cter
+     * deber&iacute;a indicarse en min&uacute;sculas.
+     * @param button Bot&oacute;n en el que subrayar el mnem&oacute;nico.
+     * @param key Caracter a subrayar. */
+    static void remarkMnemonic(final AbstractButton button, final int key) {
+        final String text = button.getText();
+        final int pos = text.toLowerCase(Locale.getDefault()).indexOf(key); // Se obtiene el indice del caracter
+        if (pos != -1) {
+            // Se subraya
+            button.setDisplayedMnemonicIndex(pos);
+        }
+    }
+
+    /** Muestra u oculta un <i>tooltip</i> relacionado con un bot&oacute;n.
+     * @param show <code>true</code> para mostrar el <i>tooltip</i>, <code>false</code> para ocultarlo.
+     * @param tip <code>JWindow</code> que muestra el contenido del <i>tooltip</i>.
+     * @param boton Bot&oacute;n al que se relaciona el <i>tooltip</i>.
+     * @param tipText Etiqueta que muestra el contenido del <i>tooltip</i>. */
     static void showToolTip(final boolean show, final JWindow tip, final JButton boton, final JLabel tipText) {
         tipText.setText(boton.getToolTipText());
         tip.setBackground((Color) UIManager.get("ToolTip.background")); //$NON-NLS-1$

@@ -48,14 +48,18 @@ import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 
 import es.gob.jmulticard.callback.CustomAuthorizeCallback;
-import es.gob.jmulticard.ui.passwordcallback.gui.CustomDialogSmartcard;
+import es.gob.jmulticard.ui.passwordcallback.gui.ConfirmSmartcardDialog;
 
 /** Gestor de di&aacute;logos gr&aacute;ficos.
  * @author Tom&aacute;s Garc&iacute;a-Mer&aacute;s */
 public final class DialogBuilder {
 
-private static boolean headless = false;
-    static void setHeadLess(final boolean hl) {
+	private static boolean headless = false;
+
+    /** Establece el modo sin interfaz.
+     * @param hl <code>true</code> para operar sin interaz, <code>false</code> para operar con interfaz
+     *           (con di&aacute;logos hacia el usuario, etc.). */
+    public static void setHeadLess(final boolean hl) {
         headless = hl;
     }
 
@@ -78,7 +82,7 @@ private static boolean headless = false;
     public static void showSignatureConfirmDialog(final CustomAuthorizeCallback callBack) {
         if (!headless) {
             try {
-            	final int i = CustomDialogSmartcard.showConfirmDialog(
+            	final int i = ConfirmSmartcardDialog.showConfirmDialog(
             		 PasswordCallbackManager.getDialogOwner(),
                      true,
                      Messages.getString("CustomDialog.confirmDialog.prompt"), //$NON-NLS-1$

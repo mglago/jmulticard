@@ -83,6 +83,7 @@ import es.gob.jmulticard.card.CardMessages;
 import es.gob.jmulticard.card.CompressionUtils;
 import es.gob.jmulticard.card.CryptoCardException;
 import es.gob.jmulticard.card.Location;
+import es.gob.jmulticard.card.PasswordCallbackNotFoundException;
 import es.gob.jmulticard.card.PinException;
 import es.gob.jmulticard.card.PrivateKeyReference;
 import es.gob.jmulticard.card.cwa14890.Cwa14890Card;
@@ -191,6 +192,18 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
     	return this.passwordCallback;
     }
 
+	@Override
+	public String toString() {
+		try {
+			final Cdf cdf = getCdf();
+			return getCardName() + "\n" + new DnieSubjectPrincipalParser(cdf.getCertificateSubjectPrincipal(0)).toString(); //$NON-NLS-1$
+		}
+		catch (final ApduConnectionException e) {
+			LOGGER.warning("No se ha podido leer el CDF del DNIe: " + e); //$NON-NLS-1$
+		}
+		return getCardName();
+	}
+
     /** Conecta con el lector del sistema que tenga un DNIe insertado.
      * @param conn Conexi&oacute;n hacia el DNIe.
      * @throws ApduConnectionException Si hay problemas de conexi&oacute;n con la tarjeta. */
@@ -229,10 +242,10 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
      * @throws ApduConnectionException Si la conexi&oacute;n con la tarjeta se proporciona
      *                                 cerrada y no es posible abrirla.*/
     protected Dnie(final ApduConnection conn,
-    	 final PasswordCallback pwc,
-    	 final CryptoHelper cryptoHelper,
-    	 final CallbackHandler ch,
-    	 final boolean loadCertsAndKeys) throws ApduConnectionException {
+    	           final PasswordCallback pwc,
+    	           final CryptoHelper cryptoHelper,
+    	           final CallbackHandler ch,
+    	           final boolean loadCertsAndKeys) throws ApduConnectionException {
         super((byte) 0x00, conn);
         conn.reset();
         connect(conn);
@@ -250,6 +263,7 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
 		}
 
         this.passwordCallback = pwc;
+
         if (cryptoHelper == null) {
             throw new IllegalArgumentException("El CryptoHelper no puede ser nulo"); //$NON-NLS-1$
         }
@@ -327,7 +341,7 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
     }
 
     /** Recupera el n&uacute;mero de serie de un DNIe.
-     * @return Un array de bytes que contiene el n&uacute;mero de serie del DNIe.
+     * @return Un array de octetos que contiene el n&uacute;mero de serie del DNIe.
      * @throws ApduConnectionException Si la conexi&oacute;n con la tarjeta se proporciona
      *                                 cerrada y no es posible abrirla. */
     @Override
@@ -678,6 +692,7 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
      * operaci&oacute;n de firma.
      * @return <code>true</code> si la tarjeta requiere autorizaci&oacute;n del usuario para ejecutar una
      *         operaci&oacute;n de firma, <code>false</code> en caso contrario. */
+	@SuppressWarnings("static-method")
 	protected boolean needAuthorizationToSign() {
     	return true;
     }
@@ -751,7 +766,7 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
      * @throws CryptoCardException Si hay problemas en el proceso.
      * @throws PinException Si el PIN usado para la apertura de canal no es v&aacute;lido o no se ha proporcionado
      * 						un PIN para validar.  */
-    protected void openSecureChannelIfNotAlreadyOpened() throws CryptoCardException, PinException {
+    public void openSecureChannelIfNotAlreadyOpened() throws CryptoCardException, PinException {
         // Abrimos el canal seguro si no lo esta ya
         if (!isSecurityChannelOpen()) {
         	// Aunque el canal seguro estuviese cerrado, podria si estar enganchado
@@ -782,7 +797,6 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
 
     private int getPinRetriesLeft() throws PinException {
     	final CommandApdu verifyCommandApdu = new RetriesLeftApduCommand();
-
     	final ResponseApdu verifyResponse;
 		try {
 			verifyResponse = getConnection().transmit(
@@ -797,19 +811,36 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
     	return verifyResponse.getStatusWord().getLsb() - (byte) 0xC0;
     }
 
-    protected PasswordCallback getInternalPasswordCallback() throws PinException {
+    protected PasswordCallback getInternalPasswordCallback() throws PinException,
+    																PasswordCallbackNotFoundException {
+    	return getInternalPasswordCallback(false);
+    }
+
+    protected PasswordCallback getInternalPasswordCallback(final boolean reset) throws	PinException,
+    																					PasswordCallbackNotFoundException {
+    	// Si hay establecido un PasswordCallback, devolvemos ese
     	if (this.passwordCallback != null) {
     		final int retriesLeft = getPinRetriesLeft();
-    		if(retriesLeft == 0) {
+    		if (retriesLeft == 0) {
     			throw new AuthenticationModeLockedException();
     		}
     		return this.passwordCallback;
     	}
+
+    	// Si hay establecido un CallbackHandler, le solicitamos un PasswordCallback
     	if (this.callbackHandler != null) {
+
+    		// Si se ha pedido resetear los valores predefinidos, comprobamos si teniamos un
+    		// callbackHandler que cachease los resultados y los reseteamos en tal caso
+    		if (reset && this.callbackHandler instanceof CacheElement) {
+    			((CacheElement) this.callbackHandler).reset();
+    		}
+
         	final int retriesLeft = getPinRetriesLeft();
-        	if(retriesLeft == 0) {
+        	if (retriesLeft == 0) {
         		throw new AuthenticationModeLockedException();
         	}
+
         	final PasswordCallback  pwc = new PasswordCallback(
     			getPinMessage(retriesLeft),
 				false
@@ -823,7 +854,7 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
 				);
 			}
 			catch (final UnsupportedCallbackException e) {
-				throw new PinException(
+				throw new PasswordCallbackNotFoundException(
 					"El CallbackHandler no soporta pedir el PIN al usuario: " + e, e//$NON-NLS-1$
 				);
 			}
@@ -834,7 +865,7 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
 			}
 			return pwc;
     	}
-    	throw new PinException("No hay ningun metodo para obtener el PIN"); //$NON-NLS-1$
+    	throw new PasswordCallbackNotFoundException("No hay ningun metodo para obtener el PIN"); //$NON-NLS-1$
     }
 
     /** Devuelve el texto del di&aacute;logo de inserci&oacute;n de PIN.
@@ -916,7 +947,7 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
     @Override
     public void verifyPin(final PasswordCallback psc) throws ApduConnectionException,
     		                                             PinException {
-    	if(psc == null) {
+    	if (psc == null) {
     		throw new IllegalArgumentException(
     			"No se puede verificar el titular con un PasswordCallback nulo" //$NON-NLS-1$
         	);
@@ -934,14 +965,13 @@ public class Dnie extends Iso7816EightCard implements Dni, Cwa14890Card {
             if (verifyResponse.getStatusWord().getMsb() == ERROR_PIN_SW1) {
             	// Si no hay reintento automatico se lanza la excepcion
             	// Incluimos una proteccion en el caso de usar algun "CachePasswordCallback" del
-            	// Cliente @firma, que derivaria en DNI bloqueado
+            	// Cliente @firma o un callback personalizado que indicaba que debia almacenarse el PIN,
+            	// ya que en caso de reutilizarlos se bloquearia el DNI
             	if (!PIN_AUTO_RETRY || psc.getClass().getName().endsWith("CachePasswordCallback")) { //$NON-NLS-1$
             		throw new BadPinException(verifyResponse.getStatusWord().getLsb() - (byte) 0xC0);
             	}
             	// Si hay reintento automatico volvemos a pedir el PIN con la misma CallBack
-            	verifyPin(
-            		getInternalPasswordCallback()
-            	);
+           		verifyPin(getInternalPasswordCallback(true));
             }
             else if (verifyResponse.getStatusWord().getMsb() == (byte)0x69 &&
             		 verifyResponse.getStatusWord().getLsb() == (byte)0x83) {
